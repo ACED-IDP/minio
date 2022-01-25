@@ -1,0 +1,2 @@
+# convenience method to wrap s3 commands
+aws --profile myminio --endpoint-url http://localhost:9000  s3 $@

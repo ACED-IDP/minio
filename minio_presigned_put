@@ -1,0 +1,69 @@
+#!/usr/bin/env python3
+
+from minio import Minio
+import click
+
+import os
+import configparser
+from urllib.parse import urlsplit
+
+import logging
+
+logger = logging.getLogger('minio_presign')
+FORMAT = '%(asctime)s  %(message)s'
+logging.basicConfig(format=FORMAT)
+logger.setLevel(logging.WARNING)
+
+@click.command()
+@click.option('--aws_configuration_path', default='~/.aws', help='Minio profile name') 
+@click.option('--profile', default='myminio', help='Name of profile')
+@click.option('--bucket_name', required=True, help='Name of the bucket.')
+@click.option('--object_name', required=True, help='Object name in the bucket.')
+@click.option('-v', '--verbose', count=True)
+def presigned_put(aws_configuration_path, profile, bucket_name, object_name, verbose):
+    """Request a pre-signed url for file upload."""
+
+    if verbose > 0:
+        logger.setLevel(logging.DEBUG)
+    # read credentials & config stored in profiles
+    config = configparser.ConfigParser()
+    path = os.path.join(os.path.expanduser(f'{aws_configuration_path}/credentials'))
+    assert os.path.isfile(path), f"{path} not found"
+    logger.debug(f"Reading from {path}")
+    config.read(path)
+    aws_access_key_id = config[profile]['aws_access_key_id']
+    aws_secret_access_key = config[profile]['aws_secret_access_key']
+    assert aws_access_key_id, "aws_access_key_id missing"
+    assert aws_secret_access_key, "aws_secret_access_key missing"
+
+    config = configparser.ConfigParser()
+    path = os.path.join(os.path.expanduser(f'{aws_configuration_path}/config'))
+    assert os.path.isfile(path), f"{path} not found"
+    logger.debug(f"Reading from {path}")
+    config.read(path)
+    endpoint = config[profile]['endpoint']
+    region = config[profile]['region']
+    assert endpoint, "endpoint missing"
+    assert region, "region missing"
+    parsed_endpoint = urlsplit(endpoint)
+
+    # Create client with access and secret key.
+    client = Minio(parsed_endpoint.netloc, access_key=aws_access_key_id, secret_key=aws_secret_access_key, region=region, secure=(parsed_endpoint.scheme == 'https'))
+
+    logger.debug(f"Getting presigned put url for: {bucket_name} {object_name}")
+    print(client.presigned_put_object(bucket_name, object_name))
+
+
+    # # list buckets and their contents
+    # buckets = client.list_buckets()
+    # for bucket in buckets:
+    #     print(bucket.name, bucket.creation_date)
+    #     objects = client.list_objects(bucket.name, recursive=True)
+    #     for obj in objects:
+    #         print(f"\t{obj.object_name} {obj.last_modified}")    
+    #     # create presigned put object
+    #     print(f"curl -v --upload-file ~/Downloads/test.txt '{client.presigned_put_object(bucket.name, 'test2.txt')}'")
+
+
+if __name__ == '__main__':
+    presigned_put()
