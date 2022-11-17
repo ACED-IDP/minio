@@ -1,5 +1,7 @@
 # ACED-IDP Minio based file service
 
+> Note this repo was part of exploratory tests in preparation of the ACED proposal.  No longer maintained.
+
 ## Proof of concept
 
 > Verify presigned urls can be used for upload and download
